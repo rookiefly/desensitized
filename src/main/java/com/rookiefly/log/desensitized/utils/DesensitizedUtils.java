@@ -45,9 +45,8 @@ public class DesensitizedUtils {
                 /* 利用fastjson对脱敏后的克隆对象进行序列化 */
                 json = JSON.toJSONString(clone, SerializerFeature.WriteMapNullValue, SerializerFeature.WriteNullListAsEmpty);
 
-                /* 清空计数器 */
                 referenceCounter.clear();
-                referenceCounter = null;
+                referenceCounter = null; //help gc
             } catch (Throwable e) {
                 e.printStackTrace();
             }
@@ -237,12 +236,27 @@ public class DesensitizedUtils {
         List<Field> fieldList = new ArrayList<Field>();
         Class tempClass = objSource.getClass();
         while (tempClass != null && !tempClass.getName().toLowerCase().equals("java.lang.object")) {//当父类为null的时候说明到达了最上层的父类(Object类).
-            fieldList.addAll(Arrays.asList(tempClass.getDeclaredFields()));
+            Field[] declaredFields = tempClass.getDeclaredFields();
+            List<Field> declaredFieldList = new ArrayList<>(Arrays.asList(declaredFields));
+            filterFields(declaredFieldList);
+            fieldList.addAll(declaredFieldList);
             tempClass = tempClass.getSuperclass(); //得到父类,然后赋给自己
         }
         Field[] fields = new Field[fieldList.size()];
         fieldList.toArray(fields);
         return fields;
+    }
+
+    /**
+     * 过滤不需要处理的字段，比如serialVersionUID
+     * @param declaredFieldList
+     */
+    private static void filterFields(List<Field> declaredFieldList) {
+        for (int i = 0; i < declaredFieldList.size(); i++) {
+            if (declaredFieldList.get(i).getName().equals("serialVersionUID")) {
+                declaredFieldList.remove(i);
+            }
+        }
     }
 
     /**
@@ -274,7 +288,7 @@ public class DesensitizedUtils {
     }
 
     /**
-     * 【固定电话 后四位，其他隐藏，比如1234
+     * 【固定电话】 后四位，其他隐藏，比如1234
      *
      * @param num
      * @return
@@ -315,7 +329,7 @@ public class DesensitizedUtils {
     }
 
     /**
-     * 【电子邮箱 邮箱前缀仅显示第一个字母，前缀其他隐藏，用星号代替，@及后面的地址显示，比如：d**@126.com>
+     * 【电子邮箱】 邮箱前缀仅显示第一个字母，前缀其他隐藏，用星号代替，@及后面的地址显示，比如：d**@126.com>
      *
      * @param email
      * @return
